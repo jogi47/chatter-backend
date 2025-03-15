@@ -9,6 +9,7 @@ import loggerConfig from './config/logger.config';
 import { CommonModule } from './common/common.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { GroupModule } from './group/group.module';
+import { MessageModule } from './message/message.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { GroupModule } from './group/group.module';
     ChatModule,
     AuthModule,
     GroupModule,
+    MessageModule,
   ],
   controllers: [],
   providers: [],

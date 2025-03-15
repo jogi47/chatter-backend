@@ -6,9 +6,12 @@ import { ChatGateway } from './chat.gateway';
 export class ChatService {
   constructor(private readonly chatGateway: ChatGateway) {}
 
-  getStatus(): { status: string } {
+  getStatus(): { status: string; connectedClients: number } {
     const connectedClients = this.chatGateway.getConnectedClients();
-    return { status: `Chat server is running with ${connectedClients} connected clients` };
+    return { 
+      status: 'Chat server is running', 
+      connectedClients 
+    };
   }
 
   broadcastMessage(chatMessageDto: ChatMessageDto): { success: boolean; message: string } {
@@ -21,6 +24,12 @@ export class ChatService {
     return { 
       success: true, 
       message: `Message "${chatMessageDto.message}" broadcasted to all clients` 
+    };
+  }
+
+  isUserConnected(userId: string): { connected: boolean } {
+    return { 
+      connected: this.chatGateway.isClientConnected(userId) 
     };
   }
 } 
