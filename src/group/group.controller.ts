@@ -26,7 +26,7 @@ import {
 @ApiTags('api/groups')
 @Controller('api/groups')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 export class GroupController {
   constructor(private readonly groupService: GroupService) {}
 

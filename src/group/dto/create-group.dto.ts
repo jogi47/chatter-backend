@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsArray, IsNotEmpty, ArrayMinSize } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class CreateGroupDto {
   @ApiProperty({ description: 'Name of the group' })
@@ -7,10 +7,13 @@ export class CreateGroupDto {
   @IsNotEmpty()
   group_name: string;
 
-  @ApiProperty({ description: 'Array of user IDs to be added as members' })
-  @IsArray()
-  @ArrayMinSize(1)
-  member_ids: string[];
+  @ApiProperty({ 
+    description: 'Comma-separated list of user IDs to be added as members',
+    example: '507f1f77bcf86cd799439011,507f191e810c19729de860ea' 
+  })
+  @IsString()
+  @IsNotEmpty()
+  member_ids: string;
 
   @ApiProperty({ description: 'Group image file', type: 'string', format: 'binary', required: false })
   group_image?: Express.Multer.File;

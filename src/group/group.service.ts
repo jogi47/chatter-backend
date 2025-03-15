@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { Group, GroupRole } from './schemas/group.schema';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { ChangeOwnerDto } from './dto/group-action.dto';
@@ -25,12 +25,27 @@ export class GroupService {
   }
 
   async createGroup(createGroupDto: CreateGroupDto, groupImage: Express.Multer.File, currentUser: any) {
+    // Convert comma-separated string to array and remove any whitespace
+    const memberIdArray = createGroupDto.member_ids
+      .split(',')
+      .map(id => id.trim())
+      .filter(id => id.length > 0);
+
+    // Add current user as owner if not already in the list
+    if (!memberIdArray.includes(currentUser.sub)) {
+      memberIdArray.push(currentUser.sub);
+    }
+
+    if (memberIdArray.length === 1) {
+      throw new BadRequestException('At least one member (besides owner) must be provided');
+    }
+
     // Verify all member IDs exist
     const members = await this.userModel.find({
-      _id: { $in: createGroupDto.member_ids },
+      _id: { $in: memberIdArray },
     });
 
-    if (members.length !== createGroupDto.member_ids.length) {
+    if (members.length !== memberIdArray.length) {
       throw new BadRequestException('One or more member IDs are invalid');
     }
 
@@ -40,7 +55,7 @@ export class GroupService {
       groupImageUrl = await this.uploadGroupImage(groupImage, createGroupDto.group_name);
     }
 
-    // Create group members array with roles
+    // Create group members array with roles, ensuring current user is owner
     const groupMembers = members.map(member => ({
       userId: member._id,
       username: member.username,
@@ -59,6 +74,7 @@ export class GroupService {
   }
 
   async leaveGroup(groupId: string, currentUser: any) {
+    // First check if group exists and user is a member
     const group = await this.groupModel.findById(groupId);
     if (!group) {
       throw new NotFoundException('Group not found');
@@ -77,10 +93,21 @@ export class GroupService {
     }
 
     group.members.splice(memberIndex, 1);
-    return group.save();
+
+    // Replace the entire group document with the updated one
+    const updatedGroup = await this.groupModel.replaceOne(
+      { _id: groupId },
+      group
+    );
+
+    if (!updatedGroup) {
+      throw new BadRequestException('Failed to update group ownership');
+    }
+    return group;
   }
 
   async changeOwner(changeOwnerDto: ChangeOwnerDto, currentUser: any) {
+    // First verify the group exists and user permissions
     const group = await this.groupModel.findById(changeOwnerDto.group_id);
     if (!group) {
       throw new NotFoundException('Group not found');
@@ -106,14 +133,24 @@ export class GroupService {
     currentOwner.role = GroupRole.MEMBER;
     newOwner.role = GroupRole.OWNER;
 
-    return group.save();
+    // Replace the entire group document with the updated one
+    const updatedGroup = await this.groupModel.replaceOne(
+      { _id: changeOwnerDto.group_id },
+      group
+    );
+
+    if (!updatedGroup) {
+      throw new BadRequestException('Failed to update group ownership');
+    }
+
+    return group;
   }
 
   async getMemberGroups(currentUser: any) {
     return this.groupModel.find({
       'members': {
         $elemMatch: {
-          userId: currentUser.sub,
+          username: currentUser.username,
           role: GroupRole.MEMBER,
         },
       },
@@ -124,7 +161,7 @@ export class GroupService {
     return this.groupModel.find({
       'members': {
         $elemMatch: {
-          userId: currentUser.sub,
+          userId: new mongoose.Types.ObjectId(currentUser.sub),
           role: GroupRole.OWNER,
         },
       },
