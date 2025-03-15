@@ -3,8 +3,8 @@ import { HomeService } from './home.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { MessageDto } from './dto/message.dto';
 
-@ApiTags('home')
-@Controller('home')
+@ApiTags('api/home')
+@Controller('api/home')
 export class HomeController {
   constructor(private readonly homeService: HomeService) {}
 

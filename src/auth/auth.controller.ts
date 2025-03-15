@@ -5,6 +5,7 @@ import {
   UseInterceptors, 
   UploadedFile,
   BadRequestException,
+  Get,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -18,8 +19,8 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-@ApiTags('auth')
-@Controller('auth')
+@ApiTags('api/auth')
+@Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -73,5 +74,14 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Get('debug-test')
+  @ApiOperation({ summary: 'Test endpoint for debugging' })
+  @ApiResponse({ status: 200, description: 'Debug test successful' })
+  async debugTest() {
+    const testVar = 'Debug is working!';  // Set a breakpoint on this line
+    console.log(testVar);
+    return { message: testVar };
   }
 } 

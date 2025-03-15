@@ -3,8 +3,8 @@ import { ChatService } from './chat.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ChatMessageDto } from './dto/chat-message.dto';
 
-@ApiTags('chat')
-@Controller('chat')
+@ApiTags('api/chat')
+@Controller('api/chat')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 

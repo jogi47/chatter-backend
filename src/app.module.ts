@@ -1,16 +1,20 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { HomeModule } from './home/home.module';
 import { ChatModule } from './chat/chat.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import databaseConfig from './config/database.config';
+import loggerConfig from './config/logger.config';
+import { CommonModule } from './common/common.module';
+import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { GroupModule } from './group/group.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig],
+      load: [databaseConfig, loggerConfig],
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
@@ -21,11 +25,19 @@ import databaseConfig from './config/database.config';
       }),
       inject: [ConfigService],
     }),
+    CommonModule,
     HomeModule,
     ChatModule,
     AuthModule,
+    GroupModule,
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule {} 
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RequestLoggerMiddleware)
+      .forRoutes('*');
+  }
+} 
