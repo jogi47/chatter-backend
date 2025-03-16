@@ -2,9 +2,13 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { WebsocketAdapter } from './chat/websocket.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  // Use custom WebSocket adapter
+  app.useWebSocketAdapter(new WebsocketAdapter(app));
   
   // Enable CORS
   app.enableCors();
@@ -117,7 +121,7 @@ async function bootstrap() {
     },
   });
   
-  await app.listen(3000);
+  await app.listen(3001);
   console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap(); 

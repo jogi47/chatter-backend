@@ -8,6 +8,7 @@ import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { S3 } from 'aws-sdk';
 import { ConfigService } from '@nestjs/config';
+import { S3Service } from '../common/services/s3.service';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +18,7 @@ export class AuthService {
     @InjectModel(User.name) private userModel: Model<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private s3Service: S3Service,
   ) {
     this.s3 = new S3({
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
@@ -56,13 +58,16 @@ export class AuthService {
 
     await user.save();
 
+    // Generate signed URL for profile image
+    const signedProfileImage = await this.s3Service.getSignedUrl(user.profile_image);
+
     return {
       message: 'User registered successfully',
       user: {
         id: user._id,
         username: user.username,
         email: user.email,
-        profile_image: user.profile_image,
+        profile_image: signedProfileImage,
       },
     };
   }
@@ -89,13 +94,16 @@ export class AuthService {
       email: user.email,
     };
 
+    // Generate signed URL for profile image
+    const signedProfileImage = await this.s3Service.getSignedUrl(user.profile_image);
+
     return {
       access_token: this.jwtService.sign(payload),
       user: {
         id: user._id,
         username: user.username,
         email: user.email,
-        profile_image: user.profile_image,
+        profile_image: signedProfileImage,
       },
     };
   }

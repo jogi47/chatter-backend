@@ -7,6 +7,7 @@ import { CreateMessageDto, CreateImageMessageDto } from './dto/create-message.dt
 import { S3 } from 'aws-sdk';
 import { ConfigService } from '@nestjs/config';
 import * as mongoose from 'mongoose';
+import { S3Service } from '../common/services/s3.service';
 
 @Injectable()
 export class MessageService {
@@ -16,6 +17,7 @@ export class MessageService {
     @InjectModel(Message.name) private messageModel: Model<Message>,
     @InjectModel(Group.name) private groupModel: Model<Group>,
     private configService: ConfigService,
+    private s3Service: S3Service,
   ) {
     this.s3 = new S3({
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
@@ -35,9 +37,20 @@ export class MessageService {
       throw new UnauthorizedException('You are not a member of this group');
     }
 
-    return this.messageModel
+    const messages = await this.messageModel
       .find({ group_id: new mongoose.Types.ObjectId(groupId) })
       .sort({ createdAt: 1 });
+
+    // Generate signed URLs for message images and user profile images
+    return Promise.all(
+      messages.map(async (message) => ({
+        ...message.toObject(),
+        user_profile_image: await this.s3Service.getSignedUrl(message.user_profile_image),
+        image_url: message.type === MessageType.IMAGE ? 
+          await this.s3Service.getSignedUrl(message.image_url) : 
+          message.image_url,
+      }))
+    );
   }
 
   async createTextMessage(createMessageDto: CreateMessageDto, currentUser: any) {

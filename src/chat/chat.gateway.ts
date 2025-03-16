@@ -7,15 +7,14 @@ import {
   OnGatewayInit,
   WsException,
 } from '@nestjs/websockets';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { WsJwtAuthGuard } from '../auth/guards/ws-jwt-auth.guard';
-import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Group } from '../group/schemas/group.schema';
 import { Message, MessageType } from '../message/schemas/message.schema';
 import * as mongoose from 'mongoose';
+import { S3Service } from '../common/services/s3.service';
 
 interface AuthenticatedSocket extends Socket {
   user?: any;
@@ -27,16 +26,15 @@ interface AuthenticatedSocket extends Socket {
   },
   transports: ['websocket', 'polling'],
 })
-@UseGuards(WsJwtAuthGuard)
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('ChatGateway');
   private connectedClients: Map<string, AuthenticatedSocket> = new Map();
 
   constructor(
-    private jwtService: JwtService,
     @InjectModel(Group.name) private groupModel: Model<Group>,
     @InjectModel(Message.name) private messageModel: Model<Message>,
+    private s3Service: S3Service,
   ) {}
 
   afterInit(server: Server) {
@@ -45,6 +43,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
+      // Client is already authenticated by the adapter
       this.connectedClients.set(client.id, client);
       this.logger.log(`Client connected: ${client.id} (User: ${client.user?.username})`);
 
@@ -65,7 +64,6 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
-  @UseGuards(WsJwtAuthGuard)
   @SubscribeMessage('joinGroup')
   async handleJoinGroup(client: AuthenticatedSocket, groupId: string) {
     try {
@@ -88,7 +86,6 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
   }
 
-  @UseGuards(WsJwtAuthGuard)
   @SubscribeMessage('leaveGroup')
   async handleLeaveGroup(client: AuthenticatedSocket, groupId: string) {
     await client.leave(groupId);
@@ -96,7 +93,6 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     return { status: 'left', groupId };
   }
 
-  @UseGuards(WsJwtAuthGuard)
   @SubscribeMessage('groupMessage')
   async handleGroupMessage(client: AuthenticatedSocket, payload: { groupId: string, message: string }) {
     try {
@@ -128,15 +124,18 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
       await newMessage.save();
 
+      // Generate signed URL for user profile image
+      const signedProfileImage = await this.s3Service.getSignedUrl(member.profileImage);
+
       // Broadcast message to all members in the group
       this.server.to(groupId).emit('groupMessage', {
         messageId: newMessage._id,
         groupId,
         userId: client.user.sub,
         username: member.username,
-        userProfileImage: member.profileImage,
+        userProfileImage: signedProfileImage,
         content: message,
-        // timestamp: newMessage.createdAt,
+        timestamp: newMessage['createdAt'],
       });
 
       return { status: 'sent', messageId: newMessage._id };

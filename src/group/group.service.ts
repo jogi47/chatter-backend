@@ -7,6 +7,7 @@ import { ChangeOwnerDto } from './dto/group-action.dto';
 import { S3 } from 'aws-sdk';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../auth/schemas/user.schema';
+import { S3Service } from '../common/services/s3.service';
 
 @Injectable()
 export class GroupService {
@@ -16,6 +17,7 @@ export class GroupService {
     @InjectModel(Group.name) private groupModel: Model<Group>,
     @InjectModel(User.name) private userModel: Model<User>,
     private configService: ConfigService,
+    private s3Service: S3Service,
   ) {
     this.s3 = new S3({
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
@@ -147,7 +149,7 @@ export class GroupService {
   }
 
   async getMemberGroups(currentUser: any) {
-    return this.groupModel.find({
+    const groups = await this.groupModel.find({
       'members': {
         $elemMatch: {
           username: currentUser.username,
@@ -155,10 +157,24 @@ export class GroupService {
         },
       },
     });
+
+    // Generate signed URLs for group images and member profile images
+    return Promise.all(
+      groups.map(async (group) => ({
+        ...group.toObject(),
+        group_image: await this.s3Service.getSignedUrl(group.group_image),
+        members: await Promise.all(
+          group.members.map(async (member) => ({
+            ...member,
+            profileImage: await this.s3Service.getSignedUrl(member.profileImage),
+          }))
+        ),
+      }))
+    );
   }
 
   async getOwnedGroups(currentUser: any) {
-    return this.groupModel.find({
+    const groups = await this.groupModel.find({
       'members': {
         $elemMatch: {
           userId: new mongoose.Types.ObjectId(currentUser.sub),
@@ -166,6 +182,20 @@ export class GroupService {
         },
       },
     });
+
+    // Generate signed URLs for group images and member profile images
+    return Promise.all(
+      groups.map(async (group) => ({
+        ...group.toObject(),
+        group_image: await this.s3Service.getSignedUrl(group.group_image),
+        members: await Promise.all(
+          group.members.map(async (member) => ({
+            ...member,
+            profileImage: await this.s3Service.getSignedUrl(member.profileImage),
+          }))
+        ),
+      }))
+    );
   }
 
   async getGroupMembers(groupId: string) {
@@ -173,7 +203,16 @@ export class GroupService {
     if (!group) {
       throw new NotFoundException('Group not found');
     }
-    return group.members;
+
+    // Generate signed URLs for member profile images
+    const members = await Promise.all(
+      group.members.map(async (member) => ({
+        ...member,
+        profileImage: await this.s3Service.getSignedUrl(member.profileImage),
+      }))
+    );
+
+    return members;
   }
 
   private async uploadGroupImage(file: Express.Multer.File, groupName: string): Promise<string> {
