@@ -271,7 +271,8 @@ export class GroupService {
 
   private async uploadGroupImage(file: Express.Multer.File, groupName: string): Promise<string> {
     const bucketName = this.configService.get('AWS_BUCKET_NAME');
-    const key = `groups/${groupName}-${Date.now()}`;
+    const sanitizedGroupName = groupName.replaceAll(' ', '-');
+    const key = `groups/${sanitizedGroupName}-${Date.now()}`;
 
     const uploadParams = {
       Bucket: bucketName,
@@ -287,4 +288,21 @@ export class GroupService {
       throw new BadRequestException('Failed to upload group image');
     }
   }
-} 
+
+  async getAllUsers() {
+    const users = await this.userModel.find({}, {
+      password: 0, // Exclude password field
+      __v: 0,      // Exclude version field
+    });
+
+    // Generate signed URLs for profile images
+    return Promise.all(
+      users.map(async (user) => ({
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        profile_image: await this.s3Service.getSignedUrl(user.profile_image),
+      }))
+    );
+  }
+}

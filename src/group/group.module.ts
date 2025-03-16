@@ -4,6 +4,7 @@ import { GroupController } from './group.controller';
 import { GroupService } from './group.service';
 import { Group, GroupSchema } from './schemas/group.schema';
 import { User, UserSchema } from '../auth/schemas/user.schema';
+import { S3Service } from '../common/services/s3.service';
 
 @Module({
   imports: [
@@ -13,6 +14,6 @@ import { User, UserSchema } from '../auth/schemas/user.schema';
     ]),
   ],
   controllers: [GroupController],
-  providers: [GroupService],
+  providers: [GroupService, S3Service],
 })
 export class GroupModule {} 

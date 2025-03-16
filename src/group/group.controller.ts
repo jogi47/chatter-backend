@@ -22,6 +22,7 @@ import {
   ApiConsumes,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { UserResponseDto } from '../auth/dto/user-response.dto';
 
 @ApiTags('api/groups')
 @Controller('api/groups')
@@ -111,5 +112,16 @@ export class GroupController {
   @ApiResponse({ status: 200, description: 'Group members retrieved successfully' })
   async getGroupMembers(@Param('groupId') groupId: string) {
     return this.groupService.getGroupMembers(groupId);
+  }
+
+  @Get('users/all')
+  @ApiOperation({ summary: 'Get all users in the application' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns list of all users',
+    type: [UserResponseDto]
+  })
+  async getAllUsers() {
+    return this.groupService.getAllUsers();
   }
 } 

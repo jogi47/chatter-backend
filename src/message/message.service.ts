@@ -68,7 +68,8 @@ export class MessageService {
       m => m.userId.toString() === currentUser.sub
     );
 
-    const message = new this.messageModel({
+    // Save message with original URLs
+    const message = await this.messageModel.create({
       group_id: new mongoose.Types.ObjectId(createMessageDto.group_id),
       user_id: new mongoose.Types.ObjectId(currentUser.sub),
       username: member.username,
@@ -77,7 +78,12 @@ export class MessageService {
       content: createMessageDto.content,
     });
 
-    return message.save();
+    // Return message with pre-signed URLs
+    const messageObj = message.toObject();
+    return {
+      ...messageObj,
+      user_profile_image: await this.s3Service.getSignedUrl(messageObj.user_profile_image),
+    };
   }
 
   async createImageMessage(createImageMessageDto: CreateImageMessageDto, image: Express.Multer.File, currentUser: any) {
@@ -95,13 +101,14 @@ export class MessageService {
       m => m.userId.toString() === currentUser.sub
     );
 
-    // Upload image to S3
+    // Upload image to S3 and get original URL
     const imageUrl = await this.uploadMessageImage(
       image,
       createImageMessageDto.group_id
     );
 
-    const message = new this.messageModel({
+    // Save message with original URLs
+    const message = await this.messageModel.create({
       group_id: new mongoose.Types.ObjectId(createImageMessageDto.group_id),
       user_id: new mongoose.Types.ObjectId(currentUser.sub),
       username: member.username,
@@ -111,7 +118,13 @@ export class MessageService {
       image_url: imageUrl,
     });
 
-    return message.save();
+    // Return message with pre-signed URLs
+    const messageObj = message.toObject();
+    return {
+      ...messageObj,
+      user_profile_image: await this.s3Service.getSignedUrl(messageObj.user_profile_image),
+      image_url: await this.s3Service.getSignedUrl(messageObj.image_url),
+    };
   }
 
   async deleteMessage(messageId: string, currentUser: any) {
