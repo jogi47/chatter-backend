@@ -91,6 +91,21 @@ export class GroupController {
     return this.groupService.getOwnedGroups(req.user);
   }
 
+  @Get('all-member-groups')
+  @ApiOperation({ summary: 'Get groups where user is member or owner of group' })
+  @ApiResponse({ status: 200, description: 'List of all groups retrieved successfully' })
+  async getAllMembersGroups(@Request() req) {
+    return this.groupService.getAllMembersGroups(req.user);
+  }
+
+  @Get('not-member-groups')
+  @ApiOperation({ summary: 'Get groups where user is not a member or owner' })
+  @ApiResponse({ status: 200, description: 'List of all groups retrieved successfully' })
+  async getNotMembersGroups(@Request() req) {
+    return this.groupService.getNotMembersGroups(req.user);
+  }
+
+
   @Get(':groupId/members')
   @ApiOperation({ summary: 'Get all members of a group' })
   @ApiResponse({ status: 200, description: 'Group members retrieved successfully' })

@@ -65,11 +65,13 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('joinGroup')
-  async handleJoinGroup(client: AuthenticatedSocket, groupId: string) {
+  async handleJoinGroup(client: AuthenticatedSocket, payload: { groupId: string }) {
     try {
+      const { groupId } = payload;
+
       // Verify user is member of the group
-      const group = await this.groupModel.findOne({
-        _id: groupId,
+      const group = await this.groupModel.findOne({  
+        _id: new mongoose.Types.ObjectId(groupId),
         'members.userId': new mongoose.Types.ObjectId(client.user.sub),
       });
 
@@ -87,20 +89,23 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('leaveGroup')
-  async handleLeaveGroup(client: AuthenticatedSocket, groupId: string) {
+  async handleLeaveGroup(client: AuthenticatedSocket, payload: { groupId: string }) {
+    const { groupId } = payload;
     await client.leave(groupId);
     this.logger.log(`Client ${client.id} left group ${groupId}`);
     return { status: 'left', groupId };
   }
 
   @SubscribeMessage('groupMessage')
-  async handleGroupMessage(client: AuthenticatedSocket, payload: { groupId: string, message: string }) {
+  async handleGroupMessage(client: AuthenticatedSocket, payload: { groupId: string, message: {content: string} }) {
     try {
       const { groupId, message } = payload;
+      const { content } = message
 
+      this.logger.log(`Message send on ${groupId} by ${client.id} - Message: ${content}`);
       // Verify user is member of the group
       const group = await this.groupModel.findOne({
-        _id: groupId,
+        _id: new mongoose.Types.ObjectId(groupId),
         'members.userId': new mongoose.Types.ObjectId(client.user.sub),
       });
 
@@ -113,32 +118,33 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       );
 
       // Save message to database
-      const newMessage = new this.messageModel({
-        group_id: new mongoose.Types.ObjectId(groupId),
-        user_id: new mongoose.Types.ObjectId(client.user.sub),
-        username: member.username,
-        user_profile_image: member.profileImage,
-        type: MessageType.TEXT,
-        content: message,
-      });
+      // const newMessage = new this.messageModel({
+      //   group_id: new mongoose.Types.ObjectId(groupId),
+      //   user_id: new mongoose.Types.ObjectId(client.user.sub),
+      //   username: member.username,
+      //   user_profile_image: member.profileImage,
+      //   type: MessageType.TEXT,
+      //   content: message,
+      // });
 
-      await newMessage.save();
+      // await newMessage.save();
 
       // Generate signed URL for user profile image
-      const signedProfileImage = await this.s3Service.getSignedUrl(member.profileImage);
+      // const signedProfileImage = await this.s3Service.getSignedUrl(member.profileImage);
 
       // Broadcast message to all members in the group
       this.server.to(groupId).emit('groupMessage', {
-        messageId: newMessage._id,
+        // messageId: anotherPayload['_id'],
         groupId,
-        userId: client.user.sub,
-        username: member.username,
-        userProfileImage: signedProfileImage,
-        content: message,
-        timestamp: newMessage['createdAt'],
+        message: message
+        // userId: client.user.sub,
+        // username: member.username,
+        // userProfileImage: signedProfileImage,
+        // content: message,
+        // timestamp: anotherPayload['createdAt'],
       });
 
-      return { status: 'sent', messageId: newMessage._id };
+      return { status: 'sent', messageId: message['_id'] };
     } catch (error) {
       throw new WsException(error.message);
     }

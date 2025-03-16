@@ -158,6 +158,60 @@ export class GroupService {
       },
     });
 
+
+
+    // Generate signed URLs for group images and member profile images
+    return Promise.all(
+      groups.map(async (group) => ({
+        ...group.toObject(),
+        group_image: await this.s3Service.getSignedUrl(group.group_image),
+        members: await Promise.all(
+          group.members.map(async (member) => ({
+            ...member,
+            profileImage: await this.s3Service.getSignedUrl(member.profileImage),
+          }))
+        ),
+      }))
+    );
+  }
+
+  async getAllMembersGroups(currentUser: any) {
+    const groups = await this.groupModel.find({
+      'members': {
+        $elemMatch: {
+          username: currentUser.username,
+        },
+      },
+    });
+
+
+
+    // Generate signed URLs for group images and member profile images
+    return Promise.all(
+      groups.map(async (group) => ({
+        ...group.toObject(),
+        group_image: await this.s3Service.getSignedUrl(group.group_image),
+        members: await Promise.all(
+          group.members.map(async (member) => ({
+            ...member,
+            profileImage: await this.s3Service.getSignedUrl(member.profileImage),
+          }))
+        ),
+      }))
+    );
+  }
+
+  async getNotMembersGroups(currentUser: any) {
+    const groups = await this.groupModel.find({
+      'members': {
+        $not: {
+          $elemMatch: {
+            username: currentUser.username
+          }
+        }
+      }
+    });
+
     // Generate signed URLs for group images and member profile images
     return Promise.all(
       groups.map(async (group) => ({
