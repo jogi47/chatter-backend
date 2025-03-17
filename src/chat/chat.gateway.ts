@@ -111,11 +111,12 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('startTyping')
-  async handleStartTyping(client: AuthenticatedSocket, groupId: string) {
+  async handleStartTyping(client: AuthenticatedSocket, payload: { groupId: string }) {
     try {
+      const { groupId } = payload;
       // Verify user is member of the group
       const group = await this.groupModel.findOne({
-        _id: groupId,
+        _id: new mongoose.Types.ObjectId(groupId),
         'members.userId': new mongoose.Types.ObjectId(client.user.sub),
       });
 
@@ -147,11 +148,12 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('stopTyping')
-  async handleStopTyping(client: AuthenticatedSocket, groupId: string) {
+  async handleStopTyping(client: AuthenticatedSocket, payload: { groupId: string }) {
     try {
+      const { groupId } = payload;
       // Verify user is member of the group
       const group = await this.groupModel.findOne({
-        _id: groupId,
+         _id: new mongoose.Types.ObjectId(groupId),
         'members.userId': new mongoose.Types.ObjectId(client.user.sub),
       });
 
