@@ -177,7 +177,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('groupMessage')
-  async handleGroupMessage(client: AuthenticatedSocket, payload: { groupId: string, message: string }) {
+  async handleGroupMessage(client: AuthenticatedSocket, payload: { groupId: string, message: {content: string}  }) {
     try {
       const { groupId, message } = payload;
       const { content } = message
