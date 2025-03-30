@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, UnauthorizedException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Message, MessageType } from './schemas/message.schema';
@@ -8,16 +8,19 @@ import { S3 } from 'aws-sdk';
 import { ConfigService } from '@nestjs/config';
 import * as mongoose from 'mongoose';
 import { S3Service } from '../common/services/s3.service';
+import { EmbeddingsService } from '../common/services/embeddings.service';
 
 @Injectable()
 export class MessageService {
   private s3: S3;
+  private readonly logger = new Logger(MessageService.name);
 
   constructor(
     @InjectModel(Message.name) private messageModel: Model<Message>,
     @InjectModel(Group.name) private groupModel: Model<Group>,
     private configService: ConfigService,
     private s3Service: S3Service,
+    private embeddingsService: EmbeddingsService,
   ) {
     this.s3 = new S3({
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
@@ -43,13 +46,19 @@ export class MessageService {
 
     // Generate signed URLs for message images and user profile images
     return Promise.all(
-      messages.map(async (message) => ({
-        ...message.toObject(),
-        user_profile_image: await this.s3Service.getSignedUrl(message.user_profile_image),
-        image_url: message.type === MessageType.IMAGE ? 
-          await this.s3Service.getSignedUrl(message.image_url) : 
-          message.image_url,
-      }))
+      messages.map(async (message) => {
+        const result = {
+          ...message.toObject(),
+          user_profile_image: await this.s3Service.getSignedUrl(message.user_profile_image),
+          image_url: message.type === MessageType.IMAGE ? 
+            await this.s3Service.getSignedUrl(message.image_url) : 
+            message.image_url,
+        };
+        
+        // Don't send the embeddings to client
+        delete result.embeddings;
+        return result;
+      })
     );
   }
 
@@ -68,7 +77,19 @@ export class MessageService {
       m => m.userId.toString() === currentUser.sub
     );
 
-    // Save message with original URLs
+    // Generate embeddings for the message content
+    let embeddings = null;
+    try {
+      embeddings = await this.embeddingsService.generateEmbeddings(createMessageDto.content);
+      if (!embeddings) {
+        this.logger.warn(`Failed to generate embeddings for message: ${createMessageDto.content.substring(0, 50)}...`);
+      }
+    } catch (error) {
+      this.logger.error(`Error generating embeddings: ${error.message}`, error.stack);
+      // Continue without embeddings if there's an error
+    }
+
+    // Save message with original URLs and embeddings
     const message = await this.messageModel.create({
       group_id: new mongoose.Types.ObjectId(createMessageDto.group_id),
       user_id: new mongoose.Types.ObjectId(currentUser.sub),
@@ -76,10 +97,15 @@ export class MessageService {
       user_profile_image: member.profileImage,
       type: MessageType.TEXT,
       content: createMessageDto.content,
+      embeddings: embeddings,
     });
 
     // Return message with pre-signed URLs
     const messageObj = message.toObject();
+    
+    // Don't send the embeddings to client
+    delete messageObj.embeddings;
+    
     return {
       ...messageObj,
       user_profile_image: await this.s3Service.getSignedUrl(messageObj.user_profile_image),
@@ -106,6 +132,17 @@ export class MessageService {
       image,
       createImageMessageDto.group_id
     );
+    
+    // For image messages, we'll store embeddings of the caption/content if available
+    let embeddings = null;
+    if (createImageMessageDto.content && createImageMessageDto.content !== 'Image message') {
+      try {
+        embeddings = await this.embeddingsService.generateEmbeddings(createImageMessageDto.content);
+      } catch (error) {
+        this.logger.error(`Error generating embeddings for image caption: ${error.message}`, error.stack);
+        // Continue without embeddings if there's an error
+      }
+    }
 
     // Save message with original URLs
     const message = await this.messageModel.create({
@@ -114,12 +151,17 @@ export class MessageService {
       username: member.username,
       user_profile_image: member.profileImage,
       type: MessageType.IMAGE,
-      content: 'Image message',
+      content: createImageMessageDto.content || 'Image message',
       image_url: imageUrl,
+      embeddings: embeddings,
     });
 
     // Return message with pre-signed URLs
     const messageObj = message.toObject();
+    
+    // Don't send the embeddings to client
+    delete messageObj.embeddings;
+    
     return {
       ...messageObj,
       user_profile_image: await this.s3Service.getSignedUrl(messageObj.user_profile_image),

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 import { MessageType } from '../schemas/message.schema';
 
 export class CreateMessageDto {
@@ -19,6 +19,11 @@ export class CreateImageMessageDto {
   @IsString()
   @IsNotEmpty()
   group_id: string;
+
+  @ApiProperty({ description: 'Optional caption for the image', required: false })
+  @IsString()
+  @IsOptional()
+  content?: string;
 
   @ApiProperty({ description: 'Image file', type: 'string', format: 'binary' })
   image: Express.Multer.File;

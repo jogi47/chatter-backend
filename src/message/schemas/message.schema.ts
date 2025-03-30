@@ -39,6 +39,10 @@ export class Message extends Document {
   @ApiProperty({ description: 'Image URL if message type is image' })
   @Prop({ required: false })
   image_url?: string;
+
+  @ApiProperty({ description: 'Vector embeddings of the message content' })
+  @Prop({ required: false, type: [Number] })
+  embeddings?: number[];
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message); 

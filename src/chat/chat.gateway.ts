@@ -15,6 +15,7 @@ import { Group } from '../group/schemas/group.schema';
 import { Message, MessageType } from '../message/schemas/message.schema';
 import * as mongoose from 'mongoose';
 import { S3Service } from '../common/services/s3.service';
+import { EmbeddingsService } from '../common/services/embeddings.service';
 
 interface AuthenticatedSocket extends Socket {
   user?: any;
@@ -37,6 +38,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     @InjectModel(Group.name) private groupModel: Model<Group>,
     @InjectModel(Message.name) private messageModel: Model<Message>,
     private s3Service: S3Service,
+    private embeddingsService: EmbeddingsService,
   ) {}
 
   afterInit(server: Server) {
@@ -182,7 +184,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   async handleGroupMessage(client: AuthenticatedSocket, payload: { groupId: string, message: {content: string}  }) {
     try {
       const { groupId, message } = payload;
-      const { content } = message
+      const { content } = message;
 
       this.logger.log(`Message send on ${groupId} by ${client.id} - Message: ${content}`);
       // Verify user is member of the group
@@ -199,31 +201,45 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         m => m.userId.toString() === client.user.sub
       );
 
-      // Save message to database
-      // const newMessage = new this.messageModel({
-      //   group_id: new mongoose.Types.ObjectId(groupId),
-      //   user_id: new mongoose.Types.ObjectId(client.user.sub),
-      //   username: member.username,
-      //   user_profile_image: member.profileImage,
-      //   type: MessageType.TEXT,
-      //   content: message,
-      // });
+      // Generate embeddings for the message content
+      let embeddings = null;
+      try {
+        embeddings = await this.embeddingsService.generateEmbeddings(content);
+        if (!embeddings) {
+          this.logger.warn(`Failed to generate embeddings for websocket message: ${content.substring(0, 50)}...`);
+        } else {
+          this.logger.log(`Generated embeddings for websocket message: ${embeddings.length} dimensions`);
+        }
+      } catch (error) {
+        this.logger.error(`Error generating embeddings: ${error.message}`, error.stack);
+        // Continue without embeddings if there's an error
+      }
 
-      // await newMessage.save();
+      // Save message to database
+      const newMessage = new this.messageModel({
+        group_id: new mongoose.Types.ObjectId(groupId),
+        user_id: new mongoose.Types.ObjectId(client.user.sub),
+        username: member.username,
+        user_profile_image: member.profileImage,
+        type: MessageType.TEXT,
+        content: content,
+        embeddings: embeddings,
+      });
+
+      const savedMessage = await newMessage.save();
 
       // Generate signed URL for user profile image
-      // const signedProfileImage = await this.s3Service.getSignedUrl(member.profileImage);
+      const signedProfileImage = await this.s3Service.getSignedUrl(member.profileImage);
 
       // Broadcast message to all members in the group
       this.server.to(groupId).emit('groupMessage', {
-        // messageId: anotherPayload['_id'],
+        messageId: savedMessage._id,
         groupId,
-        message: message
-        // userId: client.user.sub,
-        // username: member.username,
-        // userProfileImage: signedProfileImage,
-        // content: message,
-        // timestamp: anotherPayload['createdAt'],
+        userId: client.user.sub,
+        username: member.username,
+        userProfileImage: signedProfileImage,
+        content: content,
+        timestamp: new Date(),
       });
 
       // Clear typing status for the user who sent the message
@@ -237,7 +253,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         userId: client.user.sub,
       });
 
-      return { status: 'sent', messageId: message['_id'] };
+      return { status: 'sent', messageId: savedMessage._id };
     } catch (error) {
       throw new WsException(error.message);
     }
