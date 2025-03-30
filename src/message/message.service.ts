@@ -250,15 +250,13 @@ export class MessageService {
       throw new BadRequestException('User information not found');
     }
 
-    // Get recent messages from the group
-    const messages = await this.messageModel
+    // Get all messages from the group
+    const allMessages = await this.messageModel
       .find({ group_id: new mongoose.Types.ObjectId(groupId) })
-      .sort({ createdAt: -1 })
-      .limit(30)  // Get last 30 messages for context
-      .sort({ createdAt: 1 }) // Re-sort in chronological order
+      .sort({ createdAt: 1 })
       .lean();  // Convert to plain JavaScript objects
 
-    if (messages.length === 0) {
+    if (allMessages.length === 0) {
       // If there are no messages, return generic replies
       return {
         suggestions: [
@@ -269,9 +267,93 @@ export class MessageService {
       };
     }
 
-    // Generate smart replies using the AI service
+    // Get the most recent message to compare against
+    const lastMessage = allMessages[allMessages.length - 1];
+    
+    // Skip the similarity selection if the last message doesn't have embeddings
+    if (!lastMessage.embeddings || lastMessage.embeddings.length === 0) {
+      this.logger.warn('Last message has no embeddings, using 5 most recent messages instead');
+      
+      // Use the 5 most recent messages if we can't do similarity comparison
+      const recentMessages = allMessages.slice(-5);
+      
+      // Generate smart replies using the AI service
+      const suggestions = await this.aiService.generateSmartReplies(
+        recentMessages,
+        currentMember.username
+      );
+
+      return { suggestions };
+    }
+
+    // Choose the similarity algorithm to use
+    // Options: 'cosine', 'euclidean', 'dot-product'
+    const similarityAlgo = this.configService.get<string>('SIMILARITY_ALGORITHM') || 'dot-product';
+    
+    // Filter messages with embeddings and calculate similarity scores
+    const messagesWithSimilarity = allMessages
+      .filter(msg => msg.embeddings && msg.embeddings.length > 0)
+      .map(msg => {
+        let similarityScore: number;
+        
+        switch (similarityAlgo) {
+          case 'euclidean':
+            // For Euclidean distance, lower is better, so we invert the score
+            // to maintain the "higher is more similar" ordering
+            const distance = this.embeddingsService.calculateEuclideanDistance(
+              lastMessage.embeddings,
+              msg.embeddings
+            );
+            similarityScore = distance === Number.MAX_VALUE ? -1 : 1 / (1 + distance);
+            break;
+          
+          case 'cosine':
+            similarityScore = this.embeddingsService.calculateCosineSimilarity(
+              lastMessage.embeddings,
+              msg.embeddings
+            );
+            break;
+            
+          case 'dot-product':
+          default:
+            similarityScore = this.embeddingsService.calculateDotProduct(
+              lastMessage.embeddings,
+              msg.embeddings
+            );
+            break;
+        }
+        
+        return {
+          ...msg,
+          similarity: similarityScore
+        };
+      })
+      .filter(msg => msg.similarity > -1); // Filter out invalid similarities
+    
+    // Sort by similarity (descending) and take the top 5
+    const topMessages = messagesWithSimilarity
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
+    
+    this.logger.log(`Selected ${topMessages.length} contextually relevant messages using ${similarityAlgo} algorithm`);
+    
+    if (topMessages.length === 0) {
+      // If no messages with valid embeddings, use 5 most recent messages
+      this.logger.warn('No messages with valid embeddings found, using 5 most recent messages instead');
+      const recentMessages = allMessages.slice(-5);
+      
+      // Generate smart replies using the AI service
+      const suggestions = await this.aiService.generateSmartReplies(
+        recentMessages,
+        currentMember.username
+      );
+
+      return { suggestions };
+    }
+
+    // Generate smart replies using the AI service with the selected messages
     const suggestions = await this.aiService.generateSmartReplies(
-      messages,
+      topMessages,
       currentMember.username
     );
 

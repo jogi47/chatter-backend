@@ -14,6 +14,7 @@ A real-time group chat application built with NestJS, MongoDB, Socket.IO, and AW
 - 📚 Swagger API Documentation
 - 🧠 Embeddings for RAG (Retrieval-Augmented Generation)
 - 💬 AI-Powered Smart Replies
+- 📊 OpenAI API Usage Tracking
 
 ## Tech Stack
 
@@ -25,14 +26,18 @@ A real-time group chat application built with NestJS, MongoDB, Socket.IO, and AW
 - **API Documentation**: Swagger
 - **Process Manager**: PM2
 - **Containerization**: Docker
-- **AI Integration**: LangChain, OpenAI (embeddings & completions)
+- **AI Integration**: 
+  - LangChain
+  - OpenAI
+    - GPT-3.5-Turbo for completions
+    - text-embedding-3-large for embeddings (256 dimensions)
 
 ## Prerequisites
 
 - Node.js (v18 or later)
 - MongoDB
 - AWS Account (for S3)
-- OpenAI API Key
+- OpenAI API Key and Organization ID
 - Docker (optional)
 - PM2 (optional)
 
@@ -58,6 +63,15 @@ AWS_BUCKET_NAME=your-bucket-name
 
 # OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key
+OPENAI_ORG_ID=your_openai_org_id
+
+# Application Configuration
+NODE_ENV=development
+APP_VERSION=1.0.0
+
+# Embedding Configuration
+# Options: 'cosine', 'euclidean', 'dot-product'
+SIMILARITY_ALGORITHM=dot-product
 ```
 
 ## Installation
@@ -77,7 +91,7 @@ npm run start:dev
 
 This application includes vector embeddings generation for chat messages to enable AI-powered features:
 
-- All text messages are automatically embedded using OpenAI's embedding models
+- All text messages are automatically embedded using OpenAI's text-embedding-3-large model
 - Embeddings are stored with the messages in MongoDB
 - This enables future features like semantic search, smart replies, and summarization
 - Image captions can also be embedded for searchability
@@ -99,6 +113,27 @@ The application offers AI-generated smart reply suggestions for group chats:
 - Each request returns 3 suggested replies tailored to the conversation
 - Client applications can display these as quick-reply options
 
+### Smart Reply Implementation Details
+
+1. **Message Selection**:
+   - Uses embeddings to find the 5 most contextually relevant messages
+   - Supports multiple similarity algorithms (configurable via SIMILARITY_ALGORITHM)
+   - Falls back to recent messages if embeddings are unavailable
+
+2. **OpenAI Integration**:
+   - Uses GPT-3.5-Turbo for cost-effective completions
+   - Includes user context and conversation history
+   - Generates natural, contextually appropriate responses
+   - Limited to 150 characters per suggestion
+
+3. **Request Tracking**:
+   - All OpenAI API calls are tracked in the OpenAI dashboard
+   - Requests are tagged with:
+     - User identifier (username_feature_environment)
+     - Application name and version
+     - Environment (development/production)
+   - Enables monitoring of API usage and costs
+
 To use this feature, make a POST request to `/api/messages/smart-replies` with the following body:
 
 ```json
@@ -112,9 +147,13 @@ The response will contain an array of suggested replies:
 ```json
 {
   "suggestions": [
-    "That sounds great!",
-    "When do you want to meet?",
-    "I'll be there."
+    "That's a great point!",
+    "I agree with your approach.",
+    "Let's discuss this further."
   ]
 }
 ```
+
+## API Documentation
+
+API documentation is available via Swagger UI at `/api/docs` when running in development mode.

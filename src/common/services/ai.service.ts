@@ -21,6 +21,12 @@ export class AIService {
     
     this.openai = new OpenAI({
       apiKey: apiKey,
+      organization: this.configService.get<string>('OPENAI_ORG_ID'),
+      defaultHeaders: {
+        'X-App-Name': 'chatter-backend',
+        'X-App-Version': this.configService.get<string>('APP_VERSION') || '1.0.0',
+        'X-Environment': this.configService.get<string>('NODE_ENV') || 'development'
+      }
     });
   }
 
@@ -69,6 +75,8 @@ export class AIService {
         temperature: 0.7,
         max_tokens: 150,
         n: 1,
+        response_format: { type: "text" },
+        user: `${currentUsername}_smart_replies_${this.configService.get<string>('NODE_ENV')}`
       });
 
       // Parse suggestions from the response
