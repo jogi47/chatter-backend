@@ -13,6 +13,7 @@ A real-time group chat application built with NestJS, MongoDB, Socket.IO, and AW
 - 🖼️ Profile & Group Images
 - 📚 Swagger API Documentation
 - 🧠 Embeddings for RAG (Retrieval-Augmented Generation)
+- 💬 AI-Powered Smart Replies
 
 ## Tech Stack
 
@@ -24,7 +25,7 @@ A real-time group chat application built with NestJS, MongoDB, Socket.IO, and AW
 - **API Documentation**: Swagger
 - **Process Manager**: PM2
 - **Containerization**: Docker
-- **AI Integration**: LangChain, OpenAI (embeddings)
+- **AI Integration**: LangChain, OpenAI (embeddings & completions)
 
 ## Prerequisites
 
@@ -87,3 +88,33 @@ The embedding generation happens automatically:
 - For both text messages and image captions
 
 These embeddings enable future AI features without requiring access to the entire message history.
+
+## Smart Reply Feature
+
+The application offers AI-generated smart reply suggestions for group chats:
+
+- Get contextually relevant reply suggestions with a single API call
+- Suggestions are generated based on recent message history
+- Uses OpenAI's GPT-3.5-Turbo for efficient and cost-effective generation
+- Each request returns 3 suggested replies tailored to the conversation
+- Client applications can display these as quick-reply options
+
+To use this feature, make a POST request to `/api/messages/smart-replies` with the following body:
+
+```json
+{
+  "group_id": "your_group_id"
+}
+```
+
+The response will contain an array of suggested replies:
+
+```json
+{
+  "suggestions": [
+    "That sounds great!",
+    "When do you want to meet?",
+    "I'll be there."
+  ]
+}
+```

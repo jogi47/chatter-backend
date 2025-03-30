@@ -37,6 +37,7 @@
     "class-validator": "^0.14.1",
     "langchain": "^0.3.19",
     "mongoose": "^8.12.1",
+    "openai": "^4.90.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.1.13",

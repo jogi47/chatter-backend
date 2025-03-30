@@ -22,6 +22,7 @@ import {
   ApiConsumes,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { SmartReplyRequestDto, SmartReplyResponseDto } from './dto/smart-reply.dto';
 
 @ApiTags('api/messages')
 @Controller('api/messages')
@@ -90,5 +91,22 @@ export class MessageController {
     @Request() req,
   ) {
     return this.messageService.deleteMessage(messageId, req.user);
+  }
+
+  @Post('smart-replies')
+  @ApiOperation({ summary: 'Get AI-generated smart reply suggestions for a group chat' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns an array of suggested replies',
+    type: SmartReplyResponseDto
+  })
+  async getSmartReplies(
+    @Body() smartReplyRequestDto: SmartReplyRequestDto,
+    @Request() req,
+  ): Promise<SmartReplyResponseDto> {
+    return this.messageService.generateSmartReplies(
+      smartReplyRequestDto.group_id,
+      req.user,
+    );
   }
 } 

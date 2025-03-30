@@ -9,6 +9,8 @@ import { ConfigService } from '@nestjs/config';
 import * as mongoose from 'mongoose';
 import { S3Service } from '../common/services/s3.service';
 import { EmbeddingsService } from '../common/services/embeddings.service';
+import { AIService } from '../common/services/ai.service';
+import { SmartReplyResponseDto } from './dto/smart-reply.dto';
 
 @Injectable()
 export class MessageService {
@@ -21,6 +23,7 @@ export class MessageService {
     private configService: ConfigService,
     private s3Service: S3Service,
     private embeddingsService: EmbeddingsService,
+    private aiService: AIService,
   ) {
     this.s3 = new S3({
       accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
@@ -219,5 +222,59 @@ export class MessageService {
     } catch (error) {
       console.error('Failed to delete image from S3:', error);
     }
+  }
+
+  /**
+   * Generate smart reply suggestions for a group chat
+   * @param groupId ID of the group to generate replies for
+   * @param currentUser The currently logged in user
+   * @returns Object containing suggested replies
+   */
+  async generateSmartReplies(groupId: string, currentUser: any): Promise<SmartReplyResponseDto> {
+    // Verify user is member of the group
+    const group = await this.groupModel.findOne({
+      _id: new mongoose.Types.ObjectId(groupId),
+      'members.userId': new mongoose.Types.ObjectId(currentUser.sub),
+    });
+
+    if (!group) {
+      throw new UnauthorizedException('You are not a member of this group');
+    }
+
+    // Find the current user in the group members to get their username
+    const currentMember = group.members.find(
+      member => member.userId.toString() === currentUser.sub
+    );
+
+    if (!currentMember) {
+      throw new BadRequestException('User information not found');
+    }
+
+    // Get recent messages from the group
+    const messages = await this.messageModel
+      .find({ group_id: new mongoose.Types.ObjectId(groupId) })
+      .sort({ createdAt: -1 })
+      .limit(30)  // Get last 30 messages for context
+      .sort({ createdAt: 1 }) // Re-sort in chronological order
+      .lean();  // Convert to plain JavaScript objects
+
+    if (messages.length === 0) {
+      // If there are no messages, return generic replies
+      return {
+        suggestions: [
+          "Hello everyone!",
+          "How is everyone doing today?",
+          "Any updates on the project?"
+        ]
+      };
+    }
+
+    // Generate smart replies using the AI service
+    const suggestions = await this.aiService.generateSmartReplies(
+      messages,
+      currentMember.username
+    );
+
+    return { suggestions };
   }
 } 
