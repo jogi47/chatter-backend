@@ -215,25 +215,25 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         // Continue without embeddings if there's an error
       }
 
-      // Save message to database
-      const newMessage = new this.messageModel({
-        group_id: new mongoose.Types.ObjectId(groupId),
-        user_id: new mongoose.Types.ObjectId(client.user.sub),
-        username: member.username,
-        user_profile_image: member.profileImage,
-        type: MessageType.TEXT,
-        content: content,
-        embeddings: embeddings,
-      });
+      // // Save message to database
+      // const newMessage = new this.messageModel({
+      //   group_id: new mongoose.Types.ObjectId(groupId),
+      //   user_id: new mongoose.Types.ObjectId(client.user.sub),
+      //   username: member.username,
+      //   user_profile_image: member.profileImage,
+      //   type: MessageType.TEXT,
+      //   content: content,
+      //   embeddings: embeddings,
+      // });
 
-      const savedMessage = await newMessage.save();
+      // const savedMessage = await newMessage.save();
 
       // Generate signed URL for user profile image
       const signedProfileImage = await this.s3Service.getSignedUrl(member.profileImage);
 
       // Broadcast message to all members in the group
       this.server.to(groupId).emit('groupMessage', {
-        messageId: savedMessage._id,
+        messageId: message['_id'],
         groupId,
         userId: client.user.sub,
         username: member.username,
@@ -253,7 +253,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         userId: client.user.sub,
       });
 
-      return { status: 'sent', messageId: savedMessage._id };
+      return { status: 'sent', messageId: message['_id'] };
     } catch (error) {
       throw new WsException(error.message);
     }
