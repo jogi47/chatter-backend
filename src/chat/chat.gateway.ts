@@ -233,13 +233,16 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
       // Broadcast message to all members in the group
       this.server.to(groupId).emit('groupMessage', {
-        messageId: message['_id'],
-        groupId,
-        userId: client.user.sub,
+        _id: message['_id'],
+        group_id:groupId,
+        user_id: client.user.sub,
         username: member.username,
-        userProfileImage: signedProfileImage,
+        user_profile_image: signedProfileImage,
         content: content,
-        timestamp: new Date(),
+        type: MessageType.TEXT,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        // embeddings: embeddings, No need to send embeddings to the client
       });
 
       // Clear typing status for the user who sent the message
