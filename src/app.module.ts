@@ -10,9 +10,20 @@ import { CommonModule } from './common/common.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { GroupModule } from './group/group.module';
 import { MessageModule } from './message/message.module';
+import { HealthModule } from './health/health.module';
+import { GraphQLModule } from '@nestjs/graphql';
+import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { join } from 'path';
+import { SampleModule } from './sample/sample.module';
 
 @Module({
   imports: [
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+      sortSchema: true,
+      playground: true, // Enable playground for testing
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, loggerConfig],
@@ -32,6 +43,8 @@ import { MessageModule } from './message/message.module';
     AuthModule,
     GroupModule,
     MessageModule,
+    HealthModule,
+    SampleModule, // Add the SampleModule here
   ],
   controllers: [],
   providers: [],
@@ -42,4 +55,4 @@ export class AppModule implements NestModule {
       .apply(RequestLoggerMiddleware)
       .forRoutes('*');
   }
-} 
+}
