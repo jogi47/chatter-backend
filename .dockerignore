@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+.docker
+.dockerignore
+README.md
+.next
+.cache
+dist
+build
+coverage

@@ -1,0 +1,27 @@
+[phases.setup]
+nixPkgs = ["nodejs"]
+
+[phases.build]
+cmds = ["npm install", "npm run build"]
+
+[start]
+cmd = "npm start"
+
+[env]
+PORT = { from = "env" }
+NODE_ENV = { from = "env" }
+MONGODB_URI = { from = "env" }
+MONGODB_USER = { from = "env" }
+MONGODB_PASSWORD = { from = "env" }
+JWT_SECRET = { from = "env" }
+JWT_EXPIRATION = { from = "env" }
+AWS_ACCESS_KEY_ID = { from = "env" }
+AWS_SECRET_ACCESS_KEY = { from = "env" }
+AWS_REGION = { from = "env" }
+AWS_BUCKET_NAME = { from = "env" }
+OPENAI_API_KEY = { from = "env" }
+OPENAI_ORG_ID = { from = "env" }
+SIMILARITY_ALGORITHM = { from = "env" }
+APP_VERSION = { from = "env" }
+OTEL_EXPORTER_OTLP_ENDPOINT = { from = "env" }
+OTEL_LOG_LEVEL = { from = "env" }

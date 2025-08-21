@@ -15,6 +15,7 @@ A real-time group chat application built with NestJS, MongoDB, Socket.IO, and AW
 - 🧠 Embeddings for RAG (Retrieval-Augmented Generation)
 - 💬 AI-Powered Smart Replies
 - 📊 OpenAI API Usage Tracking
+- 📈 Observability (Traces, Metrics, Logs)
 
 ## Tech Stack
 
@@ -31,6 +32,12 @@ A real-time group chat application built with NestJS, MongoDB, Socket.IO, and AW
   - OpenAI
     - GPT-3.5-Turbo for completions
     - text-embedding-3-large for embeddings (256 dimensions)
+- **Observability**:
+  - OpenTelemetry for instrumentation
+  - Jaeger for distributed tracing
+  - Prometheus for metrics
+  - Loki for log aggregation
+  - Grafana for dashboards
 
 ## Prerequisites
 
@@ -68,10 +75,15 @@ OPENAI_ORG_ID=your_openai_org_id
 # Application Configuration
 NODE_ENV=development
 APP_VERSION=1.0.0
+SERVICE_NAME=chatter-backend
 
 # Embedding Configuration
 # Options: 'cosine', 'euclidean', 'dot-product'
 SIMILARITY_ALGORITHM=dot-product
+
+# OpenTelemetry Configuration
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_LOG_LEVEL=info
 ```
 
 ## Installation
@@ -86,6 +98,43 @@ npm run build
 # Start the application
 npm run start:dev
 ```
+
+## Observability Setup
+
+This application includes comprehensive observability using OpenTelemetry, which provides:
+
+- **Distributed Tracing**: Track requests across services
+- **Metrics**: Monitor application performance
+- **Logs**: Centralize and analyze logs
+
+### Starting the Observability Stack
+
+The project includes a Docker Compose file with all necessary components:
+
+```bash
+# Start the observability stack
+docker-compose -f docker-compose-observability.yml up -d
+```
+
+This will start:
+- **OpenTelemetry Collector**: Receives telemetry data from the application
+- **Jaeger**: For visualizing distributed traces
+- **Prometheus**: For storing and querying metrics
+- **Loki**: For log aggregation
+- **Grafana**: For dashboards combining traces, metrics, and logs
+
+### Accessing the Dashboards
+
+- **Jaeger UI**: http://localhost:16686
+- **Prometheus**: http://localhost:9090
+- **Grafana**: http://localhost:3000 (admin/admin)
+
+### Configuration Files
+
+- `otel-collector-config.yaml`: Configuration for the OpenTelemetry Collector
+- `prometheus.yml`: Prometheus configuration
+- `loki-config.yaml`: Loki configuration
+- `grafana/provisioning/datasources`: Grafana datasource configuration
 
 ## RAG (Retrieval-Augmented Generation) Features
 

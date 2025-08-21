@@ -1,0 +1,84 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 1000
+  # Add source information to spans, metrics, and logs
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: production # ${DEPLOYMENT_ENVIRONMENT}
+        action: upsert
+  # Filter to drop unnecessary metrics
+  filter:
+    metrics:
+      include:
+        match_type: regexp
+        metric_names:
+          - '.*'
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: chatter
+    send_timestamps: true
+    metric_expiration: 180m
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    tenant_id: chatter-backend
+    labels:
+      resource:
+        service.name: "service_name"
+        service.version: "service_version"
+        deployment.environment: "deployment_environment"
+
+  logging:
+    loglevel: debug
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # Console exporter for debugging
+  debug:
+    verbosity: detailed
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [jaeger, logging]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource, filter]
+      exporters: [prometheus, logging]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [loki, logging] 

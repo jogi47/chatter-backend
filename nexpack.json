@@ -1,0 +1,26 @@
+{
+  "name": "chatter-backend",
+  "description": "Chatter backend deployment for Coolify using NexPack",
+  "type": "nodejs",
+  "build": "npm install && npm run build",
+  "start": "npm start",
+  "env": [
+    "PORT",
+    "NODE_ENV",
+    "MONGODB_URI",
+    "MONGODB_USER",
+    "MONGODB_PASSWORD",
+    "JWT_SECRET",
+    "JWT_EXPIRATION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_REGION",
+    "AWS_BUCKET_NAME",
+    "OPENAI_API_KEY",
+    "OPENAI_ORG_ID",
+    "SIMILARITY_ALGORITHM",
+    "APP_VERSION",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_LOG_LEVEL"
+  ]
+}
